@@ -4,13 +4,9 @@ using System.Net;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
-using System.Runtime.Serialization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Xml.Serialization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using static RuckZuck_WCF.RZRestProxy;
 using System.Threading;
@@ -49,24 +45,7 @@ namespace RuckZuck_WCF
         {
             try
             {
-
-
-                if (handler == null)
-                {
-
-                    handler = new HttpClientHandler();
-                    if (!string.IsNullOrEmpty(Proxy))
-                    {
-                        handler.Proxy = new WebProxy(Proxy, true);
-                        handler.UseProxy = true;
-                    }
-
-                    handler.AllowAutoRedirect = true;
-                    handler.MaxAutomaticRedirections = 5;
-                    handler.CheckCertificateRevocationList = false;
-                    handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => { return true; }; //To prevent Issue with FW
-                    oClient = new HttpClient(handler);
-                }
+                InitializeHttpClient();
 
                 if (!_cache.TryGetValue("PW" + (Username + Password).GetHashCode(StringComparison.InvariantCultureIgnoreCase), out Token))
                 {
@@ -115,8 +94,34 @@ namespace RuckZuck_WCF
 
         }
 
+        private static void InitializeHttpClient()
+        {
+            if (handler == null)
+            {
+                Console.WriteLine("Initialize HttpClient");
+                handler = new HttpClientHandler();
+                if (!string.IsNullOrEmpty(Proxy))
+                {
+                    handler.Proxy = new WebProxy(Proxy, true);
+                    handler.UseProxy = true;
+                    Console.WriteLine("Get AuthToken using Proxy: " + Proxy);
+                    if (!string.IsNullOrEmpty(ProxyUserPW))
+                    {
+                        oClient.DefaultRequestHeaders.ProxyAuthorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(bProxyUser));
+                    }
+                }
+
+                handler.AllowAutoRedirect = true;
+                handler.MaxAutomaticRedirections = 5;
+                handler.CheckCertificateRevocationList = false;
+                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => { return true; }; //To prevent Issue with FW
+                oClient = new HttpClient(handler);
+            }
+        }
+
         public static string SWResults(string Searchstring)
         {
+            InitializeHttpClient();
             string sCatFile = @"wwwroot/rzcat.json";
             string sResult = "";
 
@@ -193,6 +198,7 @@ namespace RuckZuck_WCF
 
         public static string SWGet(string Shortname)
         {
+            InitializeHttpClient();
             string sResult = "";
             if (!_cache.TryGetValue("SWGET1-" + Shortname.GetHashCode(StringComparison.InvariantCultureIgnoreCase), out sResult))
             {
@@ -216,12 +222,15 @@ namespace RuckZuck_WCF
                                 .SetSlidingExpiration(TimeSpan.FromSeconds(330));
 
                             _cache.Set("SWGET1-" + Shortname.GetHashCode(StringComparison.InvariantCultureIgnoreCase), sResult, cacheEntryOptions);
-
+                           
                             return sResult;
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("ERROR: " + ex.Message);
+                }
             }
 
             return sResult;
@@ -229,6 +238,7 @@ namespace RuckZuck_WCF
 
         public static string SWGet(string PackageName, string PackageVersion)
         {
+            InitializeHttpClient();
             string sResult = "";
             if (!_cache.TryGetValue("SWGET2-" + (PackageName + PackageVersion).GetHashCode(StringComparison.InvariantCultureIgnoreCase), out sResult))
             {
@@ -255,7 +265,10 @@ namespace RuckZuck_WCF
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("ERROR: " + ex.Message);
+                }
             }
 
             return "";
@@ -263,6 +276,7 @@ namespace RuckZuck_WCF
 
         public static string SWGet(string PackageName, string Manufacturer, string PackageVersion)
         {
+            InitializeHttpClient();
             string sResult = "";
             if (!_cache.TryGetValue("SWGET3-" + (PackageName + Manufacturer + PackageVersion).GetHashCode(StringComparison.InvariantCultureIgnoreCase), out sResult))
             {
@@ -290,7 +304,10 @@ namespace RuckZuck_WCF
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("ERROR: " + ex.Message);
+                }
             }
 
             return "";
@@ -298,6 +315,7 @@ namespace RuckZuck_WCF
 
         public static async Task<string> Feedback(string productName, string productVersion, string manufacturer, string architecture, string working, string userKey, string feedback)
         {
+            InitializeHttpClient();
             if (!string.IsNullOrEmpty(feedback))
             {
                 try
@@ -315,6 +333,7 @@ namespace RuckZuck_WCF
 
         public static string GetSWDefinitions(string productName, string productVersion, string manufacturer)
         {
+            InitializeHttpClient();
             Console.WriteLine("GET SW:" + productName);
             string s1 = NormalizeString(productName + productVersion + manufacturer);
             string sSWFile = @"wwwroot/rzsw/" + s1 + ".json";
@@ -533,6 +552,7 @@ namespace RuckZuck_WCF
 
         public static Stream GetIcon(Int32 iconid)
         {
+            InitializeHttpClient();
             try
             {
                 if (!Directory.Exists("wwwroot/icons"))
@@ -563,13 +583,17 @@ namespace RuckZuck_WCF
 
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR: " + ex.Message);
+            }
 
             return null;
         }
 
         public static Stream GetFile(string filename)
         {
+            InitializeHttpClient();
             try
             {
                 filename = filename.Replace('\\', '/');
@@ -579,13 +603,17 @@ namespace RuckZuck_WCF
                     return File.Open(@"wwwroot/files/" + filename, FileMode.Open, FileAccess.Read, FileShare.Read);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR: " + ex.Message);
+            }
 
             return null;
         }
 
         public static async void TrackDownloadsNew(string SWId, string Architecture)
         {
+            InitializeHttpClient();
             try
             {
                 if (!string.IsNullOrEmpty(SWId) & !string.IsNullOrEmpty(Architecture))
@@ -600,6 +628,7 @@ namespace RuckZuck_WCF
 
         public static string CheckForUpdate(string lSoftware)
         {
+            InitializeHttpClient();
             string sResult = "";
 
             try
@@ -657,13 +686,17 @@ namespace RuckZuck_WCF
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR: " + ex.Message);
+            }
 
             return "";
         }
 
         public static bool UploadSWEntry(string lSoftware)
         {
+            InitializeHttpClient();
             try
             {
 
@@ -686,13 +719,17 @@ namespace RuckZuck_WCF
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR: " + ex.Message);
+            }
 
             return false;
         }
 
         public static bool AddIPFS(string contentID, string fileName, string iPFS, long size, bool update)
         {
+            InitializeHttpClient();
             try
             {
                 var response = oClient.GetAsync(sURL + "/rest/AddIPFS?Id=" + contentID + "&file=" + fileName + "&hash=" + iPFS + "&size=" + size + "&upd=" + update);
@@ -711,13 +748,17 @@ namespace RuckZuck_WCF
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR: " + ex.Message);
+            }
 
             return false;
         }
 
         public static string GetIPFS(string contentID, string fileName)
         {
+            InitializeHttpClient();
             try
             {
                 var response = oClient.GetStringAsync(sURL + "/rest/GetIPFS?Id=" + contentID + "&file=" + fileName);
@@ -728,7 +769,10 @@ namespace RuckZuck_WCF
                     return response.Result.Trim('"');
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR: " + ex.Message);
+            }
 
             return "";
         }
@@ -744,6 +788,7 @@ namespace RuckZuck_WCF
 
         private static async Task<bool> _DownloadFile(string URL, string FileName)
         {
+            InitializeHttpClient();
             try
             {
                 oClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "chocolatey command line");

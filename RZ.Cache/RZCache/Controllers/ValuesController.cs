@@ -88,8 +88,8 @@ namespace RZWCF.Controllers
             {
                 RuckZuck_WCF.RZRestProxy.contentType = "application/json";
             }
-            string Username = _config.GetSection("RZUser").Value ?? Request.Headers["Username"];
-            string Password = _config.GetSection("RZPW").Value ?? Request.Headers["Password"];
+            string Username = _config.GetSection("RuckZuck:RZUser").Value ?? _config.GetSection("RZUser").Value ?? Request.Headers["Username"];
+            string Password = _config.GetSection("RuckZuck:RZPW").Value ?? _config.GetSection("RZPW").Value ?? Request.Headers["Password"];
 
             if (string.IsNullOrEmpty(Username))
             {
